@@ -1,12 +1,37 @@
-import Link from 'next/link';
+// src/app/page.tsx
+'use client';
+
+import { useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Icons } from '@/components/icons';
 import { Briefcase } from 'lucide-react';
 
 export default function LoginPage() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const { login } = useAuth();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!email || !password) {
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await login({ email, password });
+    } catch (error) {
+      // El error ya se maneja en el contexto
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <main className="flex min-h-screen w-full items-center justify-center p-4">
       <Card className="w-full max-w-md shadow-2xl">
@@ -18,21 +43,48 @@ export default function LoginPage() {
           <CardDescription>Enter your credentials to access your dashboard</CardDescription>
         </CardHeader>
         <CardContent>
-          <form className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
-              <Input id="username" type="text" placeholder="e.g. john.doe" required />
+              <Label htmlFor="email">Email</Label>
+              <Input 
+                id="email" 
+                type="email" 
+                placeholder="usuario@pfdb.com" 
+                required 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={isLoading}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <Input id="password" type="password" required />
+              <Input 
+                id="password" 
+                type="password" 
+                required 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={isLoading}
+              />
             </div>
-            <Link href="/dashboard" passHref>
-              <Button type="submit" className="w-full font-bold bg-accent text-accent-foreground hover:bg-accent/90">
-                Login
-              </Button>
-            </Link>
+            <Button 
+              type="submit" 
+              className="w-full font-bold bg-accent text-accent-foreground hover:bg-accent/90"
+              disabled={isLoading}
+            >
+              {isLoading ? 'Iniciando sesión...' : 'Login'}
+            </Button>
           </form>
+          
+          {/* Credenciales de prueba para desarrollo */}
+          {process.env.NODE_ENV === 'development' && (
+            <div className="mt-4 p-4 bg-muted rounded-md text-sm">
+              <p className="font-semibold mb-2">Credenciales de prueba:</p>
+              <p>Admin: admin@pfdb.com / password123</p>
+              <p>Supervisor: maria.gonzalez@pfdb.com / password123</p>
+              <p>Empleado: pedro.silva@pfdb.com / password123</p>
+            </div>
+          )}
         </CardContent>
       </Card>
     </main>

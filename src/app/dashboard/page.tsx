@@ -1,29 +1,85 @@
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+// src/app/dashboard/page.tsx
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
+import { DashboardHeader } from '@/components/dashboard-header';
 import { EmployeeView } from '@/components/employee-view';
 import { SupervisorView } from '@/components/supervisor-view';
-import { Briefcase, Users } from 'lucide-react';
+import { AdminView } from '@/components/admin-view';
 
 export default function DashboardPage() {
+  const { user, loading } = useAuth();
+  const router = useRouter();
+  const [viewLoaded, setViewLoaded] = useState(false);
+
+  useEffect(() => {
+    console.log(user)
+    
+    // Si no está cargando y no hay usuario, redirigir al login
+    if (!loading && !user) {
+      router.push('/');
+      return;
+    }
+    
+    // Si hay usuario, marcar la vista como cargada
+    if (user) {
+      setViewLoaded(true);
+    }
+  }, [user, loading, router]);
+
+  // Mostrar loading mientras se verifica la autenticación
+  if (loading || !viewLoaded) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Cargando...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Si no hay usuario después de cargar, no mostrar nada (ya se redirigió)
+  if (!user) {
+    return null;
+  }
+
+  // Renderizar la vista según el rol del usuario
+  const renderView = () => {
+    switch (user.id_rol) {
+      
+      case 1: // Administrador
+        return <AdminView />;
+      case 2: // Supervisor
+        return <SupervisorView />;
+      case 3: // Empleado
+        return <EmployeeView />;
+      default:
+        return <EmployeeView />;
+    }
+  };
+
   return (
-    <div className="container mx-auto max-w-7xl">
-      <Tabs defaultValue="employee" className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="employee" className="font-headline">
-            <Briefcase className="mr-2 h-4 w-4" />
-            My Jornada
-          </TabsTrigger>
-          <TabsTrigger value="supervisor" className="font-headline">
-            <Users className="mr-2 h-4 w-4" />
-            Team View
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="employee" className="mt-6">
-          <EmployeeView />
-        </TabsContent>
-        <TabsContent value="supervisor" className="mt-6">
-          <SupervisorView />
-        </TabsContent>
-      </Tabs>
+    <div className="min-h-screen bg-background">
+      <DashboardHeader />
+      <main className="container mx-auto max-w-7xl p-4 sm:p-6 md:p-8">
+        <div className="mb-8">
+          <h1 className="font-headline text-3xl font-bold">
+            ¡Bienvenido, {user.nombre}!
+          </h1>
+          <p className="text-muted-foreground">
+            {new Date().toLocaleDateString('es-ES', { 
+              weekday: 'long', 
+              year: 'numeric', 
+              month: 'long', 
+              day: 'numeric' 
+            })}
+          </p>
+        </div>
+        {renderView()}
+      </main>
     </div>
   );
 }
