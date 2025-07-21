@@ -10,7 +10,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -20,13 +19,21 @@ import {
   SheetHeader,
   SheetTitle,
   SheetTrigger,
-  SheetFooter,
-  SheetClose
 } from '@/components/ui/sheet';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
-import { Separator } from '@/components/ui/separator';
-import { MessageSquare, ThumbsUp, ThumbsDown, Eye, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import { 
+  MessageSquare, 
+  ThumbsUp, 
+  ThumbsDown, 
+  Eye, 
+  Clock, 
+  CheckCircle, 
+  XCircle,
+  Users,
+  Calendar,
+} from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiService } from '@/services/api.service';
 import { Jornada, Actividad, Comentario } from '@/types';
@@ -51,35 +58,41 @@ export function SupervisorView() {
 
   useEffect(() => {
     loadJornadas();
-    // Recargar cada 30 segundos
-    const interval = setInterval(loadJornadas, 30000);
+    // Actualizar cada 15 segundos
+    const interval = setInterval(loadJornadas, 15000);
     return () => clearInterval(interval);
-  }, []);
+  }, [user]);
 
   const loadJornadas = async () => {
     if (!user) return;
     
     try {
-      const data = await apiService.getJornadasBySupervisor(user.id);
+      const data = await apiService.getJornadasForSupervisors();
       
-      // Procesar jornadas para determinar estado
-      const processedJornadas = data.map(j => {
+      const processedJornadas = data.map((j: any) => {
         let status: EmployeeJornada['status'] = 'Offline';
         
-        if (!j.hora_checkout) {
-          status = 'Online';
-        } else if (j.aprobado) {
-          status = 'Approved';
-        } else {
-          status = 'Pending Approval';
+        if (!j.hora_checkout && !j.aprobado) {
+          status = 'Pending Approval'; // Check-in pendiente
+        } else if (!j.hora_checkout && j.aprobado) {
+          status = 'Online'; // Trabajando (check-in aprobado, sin checkout)
+        } else if (j.hora_checkout && !j.aprobado) {
+          status = 'Pending Approval'; // Check-out pendiente de aprobación
+        } else if (j.hora_checkout && j.aprobado) {
+          status = 'Approved'; // Jornada completamente aprobada
         }
         
         return { ...j, status };
       });
       
-      // Ordenar: Online primero, luego Pending, luego el resto
+      // Ordenar por prioridad
       processedJornadas.sort((a, b) => {
-        const statusOrder = { 'Online': 0, 'Pending Approval': 1, 'Approved': 2, 'Offline': 3 };
+        const statusOrder = { 
+          'Pending Approval': 0, // Prioridad máxima
+          'Online': 1,           // Trabajando
+          'Approved': 2,         // Completados
+          'Offline': 3           // Sin actividad
+        };
         return statusOrder[a.status] - statusOrder[b.status];
       });
       
@@ -101,13 +114,13 @@ export function SupervisorView() {
     setSheetOpen(true);
     
     try {
-      // Cargar actividades
-      const acts = await apiService.getActividadesByJornada(jornada.id_jornada);
+      // Cargar actividades y comentarios
+      const [acts, comments] = await Promise.all([
+        apiService.getActividadesByJornada(jornada.id_jornada),
+        apiService.getComentariosByJornada(jornada.id_jornada)
+      ]);
       setActividades(acts);
-      
-      // Cargar comentarios
-      const comments = await apiService.getComentariosByJornada(jornada.id_jornada);
-      setComentarios(comments);
+      setComentarios(comments as Comentario[]);
     } catch (error) {
       console.error('Error loading details:', error);
     }
@@ -121,10 +134,14 @@ export function SupervisorView() {
       await apiService.aprobarJornada(selectedJornada.id_jornada);
       
       toast({
-        title: "Jornada aprobada",
-        description: "La jornada ha sido aprobada exitosamente",
+        title: selectedJornada.hora_checkout ? "Checkout aprobado" : "Checkin aprobado",
+        description: selectedJornada.hora_checkout 
+          ? "El checkout ha sido aprobado exitosamente" 
+          : "El checkin ha sido aprobado. El empleado puede gestionar sus tareas.",
       });
       
+      // Actualizar la jornada seleccionada
+      setSelectedJornada(prev => prev ? { ...prev, aprobado: true } : null);
       setSheetOpen(false);
       loadJornadas();
     } catch (error) {
@@ -182,17 +199,15 @@ export function SupervisorView() {
       
       toast({
         title: "Comentario agregado",
-        description: "Tu comentario se ha guardado",
+        description: "El comentario se ha guardado correctamente",
       });
       
       setNewComment('');
       setSelectedActivityId(null);
       
       // Recargar comentarios
-      if (selectedJornada) {
-        const comments = await apiService.getComentariosByJornada(selectedJornada.id_jornada);
-        setComentarios(comments);
-      }
+      const comments = await apiService.getComentariosByJornada(selectedJornada!.id_jornada);
+      setComentarios(comments as Comentario[]);
     } catch (error) {
       toast({
         title: "Error",
@@ -202,23 +217,36 @@ export function SupervisorView() {
     }
   };
 
-  const getStatusClass = (status: string) => {
+  const getStatusColor = (status: EmployeeJornada['status']) => {
     switch (status) {
       case 'Online':
-        return 'bg-[hsl(var(--chart-2))] text-primary-foreground';
+        return 'bg-green-500';
       case 'Pending Approval':
-        return 'bg-[hsl(var(--chart-4))] text-accent-foreground';
+        return 'bg-yellow-500';
       case 'Approved':
-        return 'bg-primary text-primary-foreground';
+        return 'bg-blue-500';
       default:
-        return 'bg-secondary text-secondary-foreground';
+        return 'bg-gray-500';
     }
   };
 
-  const formatTime = (dateString: string) => {
-    return new Date(dateString).toLocaleTimeString([], { 
-      hour: '2-digit', 
-      minute: '2-digit' 
+  const getStatusIcon = (status: EmployeeJornada['status']) => {
+    switch (status) {
+      case 'Online':
+        return <Clock className="h-4 w-4" />;
+      case 'Pending Approval':
+        return <Clock className="h-4 w-4" />; // Cambiar Timer por Clock
+      case 'Approved':
+        return <CheckCircle className="h-4 w-4" />;
+      default:
+        return <Users className="h-4 w-4" />; // Cambiar User por Users
+    }
+  };
+
+  const formatTime = (timeString: string) => {
+    return new Date(timeString).toLocaleTimeString('es-ES', {
+      hour: '2-digit',
+      minute: '2-digit'
     });
   };
 
@@ -233,71 +261,84 @@ export function SupervisorView() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-2 text-sm text-muted-foreground">Cargando jornadas...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <Card className="shadow-lg transition-shadow hover:shadow-xl">
-      <CardHeader>
-        <CardTitle className="font-headline">Jornadas del Equipo</CardTitle>
-        <CardDescription>
-          Revisa y gestiona las jornadas laborales de tu equipo
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {jornadas.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <p>No hay jornadas asignadas a tu supervisión</p>
-          </div>
-        ) : (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Panel de Supervisión</h2>
+          <p className="text-muted-foreground">
+            Revisa y gestiona las jornadas laborales de todos los empleados
+          </p>
+        </div>
+      </div>
+
+      {jornadas.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground">
+          <p>No hay jornadas de empleados registradas</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[300px]">Empleado</TableHead>
+                <TableHead>Empleado</TableHead>
+                <TableHead>Área</TableHead>
                 <TableHead>Estado</TableHead>
+                <TableHead>Fecha</TableHead>
                 <TableHead>Check-in</TableHead>
                 <TableHead>Check-out</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
+                <TableHead>Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {jornadas.map((jornada) => (
                 <TableRow key={jornada.id_jornada}>
                   <TableCell>
-                    <div className="flex items-center gap-4">
-                      <Avatar>
-                        <AvatarImage src="https://placehold.co/100x100.png" alt={jornada.usuario?.nombre} />
-                        <AvatarFallback>
-                          {jornada.usuario ? 
-                            `${jornada.usuario.nombre.charAt(0)}${jornada.usuario.apellido.charAt(0)}` : 
-                            'U'
-                          }
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="font-medium">
-                        {jornada.usuario ? 
-                          `${jornada.usuario.nombre} ${jornada.usuario.apellido}` : 
-                          'Usuario'
-                        }
+                    <div className="flex items-center space-x-3">
+                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-muted">
+                        <span className="text-sm font-medium">
+                          {jornada.usuario ? `${jornada.usuario.nombre.charAt(0)}${jornada.usuario.apellido.charAt(0)}` : 'U'}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="font-medium">
+                          {jornada.usuario ? `${jornada.usuario.nombre} ${jornada.usuario.apellido}` : 'Usuario Desconocido'}
+                        </p>
+                        <p className="text-sm text-muted-foreground">{jornada.usuario?.email}</p>
                       </div>
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge className={getStatusClass(jornada.status)}>
-                      {jornada.status === 'Online' && <Clock className="mr-1 h-3 w-3" />}
-                      {jornada.status === 'Approved' && <CheckCircle className="mr-1 h-3 w-3" />}
-                      {jornada.status === 'Pending Approval' && <XCircle className="mr-1 h-3 w-3" />}
-                      {jornada.status}
+                    {jornada.usuario?.area?.nombre_area || 'No asignada'}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="secondary" className={`${getStatusColor(jornada.status)} text-white`}>
+                      <div className="flex items-center space-x-1">
+                        {getStatusIcon(jornada.status)}
+                        <span>
+                          {jornada.status === 'Online' && 'Trabajando'}
+                          {jornada.status === 'Pending Approval' && (jornada.hora_checkout ? 'Check-out Pendiente' : 'Check-in Pendiente')}
+                          {jornada.status === 'Approved' && 'Aprobado'}
+                          {jornada.status === 'Offline' && 'Desconectado'}
+                        </span>
+                      </div>
                     </Badge>
                   </TableCell>
+                  <TableCell>{formatDate(jornada.fecha)}</TableCell>
                   <TableCell>{formatTime(jornada.hora_checkin)}</TableCell>
                   <TableCell>
-                    {jornada.hora_checkout ? formatTime(jornada.hora_checkout) : '-'}
+                    {jornada.hora_checkout ? formatTime(jornada.hora_checkout) : 'En curso'}
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell>
                     <Button 
                       variant="outline" 
                       size="sm"
@@ -311,152 +352,204 @@ export function SupervisorView() {
               ))}
             </TableBody>
           </Table>
-        )}
+        </div>
+      )}
 
-        <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-          <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
-            <SheetHeader>
-              <SheetTitle className="font-headline text-2xl">
-                Jornada de {selectedJornada?.usuario?.nombre} {selectedJornada?.usuario?.apellido}
-              </SheetTitle>
-              <SheetDescription>
-                {selectedJornada && formatDate(selectedJornada.fecha)}
-              </SheetDescription>
-            </SheetHeader>
-            <Separator className="my-4" />
-            
-            <div className="space-y-6 py-4">
-              <div>
-                <h4 className="font-headline text-lg mb-2">Horario</h4>
-                <div className="space-y-1">
-                  <p><strong>Check-in:</strong> {selectedJornada && formatTime(selectedJornada.hora_checkin)}</p>
-                  <p><strong>Check-out:</strong> {selectedJornada?.hora_checkout ? formatTime(selectedJornada.hora_checkout) : 'En curso'}</p>
-                </div>
-              </div>
+      {/* Sheet para ver detalles */}
+      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+        <SheetContent className="w-[600px] sm:w-[700px] overflow-y-auto">
+          {selectedJornada && (
+            <>
+              <SheetHeader>
+                <SheetTitle className="flex items-center space-x-2">
+                  <Users className="h-5 w-5" />
+                  <span>
+                    {selectedJornada.usuario?.nombre} {selectedJornada.usuario?.apellido}
+                  </span>
+                </SheetTitle>
+                <SheetDescription>
+                  Detalles de la jornada del {formatDate(selectedJornada.fecha)}
+                </SheetDescription>
+              </SheetHeader>
 
-              {selectedJornada?.observaciones && (
-                <div>
-                  <h4 className="font-headline text-lg mb-2">Observaciones del Empleado</h4>
-                  <p className="text-sm text-muted-foreground p-3 bg-muted rounded-md">
-                    {selectedJornada.observaciones}
-                  </p>
-                </div>
-              )}
+              <div className="mt-6 space-y-6">
+                {/* Información básica */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Información de la Jornada</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="font-medium">Check-in:</span>
+                      <span>{formatTime(selectedJornada.hora_checkin)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-medium">Check-out:</span>
+                      <span>{selectedJornada.hora_checkout ? formatTime(selectedJornada.hora_checkout) : 'En curso'}</span>
+                    </div>
+                  </CardContent>
+                </Card>
 
-              <div>
-                <h4 className="font-headline text-lg mb-2">Actividades Realizadas</h4>
-                {actividades.length > 0 ? (
-                  <div className="space-y-3">
-                    {actividades.map((actividad) => (
-                      <div key={actividad.id} className="p-3 border rounded-md">
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <p className="font-medium">{actividad.tarea}</p>
-                            <p className="text-sm text-muted-foreground">Meta: {actividad.meta}</p>
-                            {actividad.observaciones && (
-                              <p className="text-sm italic mt-1">{actividad.observaciones}</p>
-                            )}
-                          </div>
-                          <Badge variant="outline">
-                            {actividad.id_estado === 3 ? 'Completada' : 
-                             actividad.id_estado === 2 ? 'En Progreso' : 'Pendiente'}
-                          </Badge>
-                        </div>
-                        
-                        {/* Comentarios de la actividad */}
-                        {comentarios.filter(c => c.id_actividad === actividad.id).length > 0 && (
-                          <div className="mt-2 pt-2 border-t">
-                            <p className="text-xs font-medium mb-1">Comentarios:</p>
-                            {comentarios
-                              .filter(c => c.id_actividad === actividad.id)
-                              .map(c => (
-                                <div key={c.id} className="text-xs bg-secondary p-2 rounded mt-1">
-                                  <p>{c.comentario}</p>
-                                  <p className="text-muted-foreground mt-1">
-                                    - {c.supervisor?.nombre} {c.supervisor?.apellido}
-                                  </p>
+                {/* Observaciones del empleado */}
+                {selectedJornada.observaciones && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Observaciones del Empleado</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm">{selectedJornada.observaciones}</p>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Actividades */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Actividades</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {actividades.length > 0 ? (
+                      <div className="space-y-3">
+                        {actividades.map((actividad) => (
+                          <div key={actividad.id} className="border rounded-lg p-3">
+                            <div className="space-y-2">
+                              <div>
+                                <h4 className="font-medium">{actividad.tarea}</h4>
+                                <p className="text-sm text-muted-foreground">{actividad.meta}</p>
+                                {actividad.observaciones && (
+                                  <p className="text-sm italic mt-1">{actividad.observaciones}</p>
+                                )}
+                                <Badge variant="outline" className="mt-1">
+                                  {actividad.id_estado === 3 ? 'Completada' : 
+                                   actividad.id_estado === 2 ? 'En Progreso' : 'Pendiente'}
+                                </Badge>
+                              </div>
+
+                              {/* Comentarios existentes */}
+                              {comentarios.filter(c => c.id_actividad === actividad.id).length > 0 && (
+                                <div className="mt-2 pt-2 border-t">
+                                  <p className="text-xs font-medium mb-1">Comentarios:</p>
+                                  {comentarios.filter(c => c.id_actividad === actividad.id).map((c) => (
+                                    <div key={c.id} className="text-xs bg-secondary p-2 rounded mt-1">
+                                      <p className="font-medium">
+                                        {c.usuario ? `${c.usuario.nombre} ${c.usuario.apellido}` : 'Usuario'}:
+                                      </p>
+                                      <p>{c.comentario}</p>
+                                      <p className="text-muted-foreground">
+                                        {new Date(c.fecha_comentario).toLocaleString('es-ES')}
+                                      </p>
+                                    </div>
+                                  ))}
                                 </div>
-                              ))
-                            }
-                          </div>
-                        )}
-                        
-                        {selectedJornada && !selectedJornada.aprobado && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="mt-2"
-                            onClick={() => setSelectedActivityId(
-                              selectedActivityId === actividad.id ? null : actividad.id
-                            )}
-                          >
-                            <MessageSquare className="mr-1 h-3 w-3" />
-                            Comentar
-                          </Button>
-                        )}
-                        
-                        {selectedActivityId === actividad.id && (
-                          <div className="mt-2 space-y-2">
-                            <Textarea
-                              placeholder="Escribe un comentario..."
-                              value={newComment}
-                              onChange={(e) => setNewComment(e.target.value)}
-                              rows={2}
-                            />
-                            <div className="flex gap-2">
-                              <Button size="sm" onClick={handleAddComment}>
-                                Enviar
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="ghost"
-                                onClick={() => {
-                                  setSelectedActivityId(null);
-                                  setNewComment('');
-                                }}
-                              >
-                                Cancelar
-                              </Button>
+                              )}
+
+                              {/* Agregar comentario - Mejorar UX */}
+                              {selectedActivityId === actividad.id ? (
+                                <div className="mt-2 space-y-2">
+                                  <Label htmlFor="comment">Comentario del supervisor:</Label>
+                                  <Textarea
+                                    id="comment"
+                                    placeholder="Escribe feedback sobre esta tarea específica..."
+                                    value={newComment}
+                                    onChange={(e) => setNewComment(e.target.value)}
+                                    rows={3}
+                                  />
+                                  <div className="flex space-x-2">
+                                    <Button size="sm" onClick={handleAddComment} disabled={!newComment.trim()}>
+                                      <MessageSquare className="mr-1 h-3 w-3" />
+                                      Agregar Comentario
+                                    </Button>
+                                    <Button size="sm" variant="outline" onClick={() => {
+                                      setSelectedActivityId(null);
+                                      setNewComment('');
+                                    }}>
+                                      Cancelar
+                                    </Button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => setSelectedActivityId(actividad.id)}
+                                >
+                                  <MessageSquare className="mr-1 h-3 w-3" />
+                                  Comentar Tarea
+                                </Button>
+                              )}
                             </div>
                           </div>
-                        )}
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">No se registraron actividades</p>
-                )}
-              </div>
-            </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No se registraron actividades</p>
+                    )}
+                  </CardContent>
+                </Card>
 
-            {selectedJornada && !selectedJornada.aprobado && selectedJornada.hora_checkout && (
-              <SheetFooter className="mt-6 flex flex-col-reverse sm:flex-row sm:justify-between sm:space-x-2">
-                <SheetClose asChild>
-                  <Button variant="ghost">Cerrar</Button>
-                </SheetClose>
-                <div className="flex gap-2 justify-end">
-                  <Button 
-                    variant="destructive"
-                    onClick={handleReject}
-                    disabled={isProcessing}
-                  >
-                    <ThumbsDown className="mr-2 h-4 w-4"/>
-                    Rechazar
-                  </Button>
-                  <Button 
-                    className="bg-[hsl(var(--chart-2))] hover:bg-[hsl(var(--chart-2))]/90 text-primary-foreground"
-                    onClick={handleApprove}
-                    disabled={isProcessing}
-                  >
-                    <ThumbsUp className="mr-2 h-4 w-4"/>
-                    Aprobar
+                {/* Acciones de aprobación - Mostrar solo si está pendiente */}
+                {(selectedJornada as EmployeeJornada).status === 'Pending Approval' && !selectedJornada.aprobado && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">
+                        {!selectedJornada.hora_checkout 
+                          ? 'Aprobar Check-in' 
+                          : 'Aprobar Check-out'
+                        }
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2">
+                        <p className="text-sm text-muted-foreground">
+                          {!selectedJornada.hora_checkout 
+                            ? 'El empleado podrá gestionar sus tareas después de la aprobación del check-in.'
+                            : 'Revisa las actividades completadas antes de aprobar el check-out.'
+                          }
+                        </p>
+                        
+                        <Button 
+                          onClick={handleApprove} 
+                          disabled={isProcessing}
+                          className="w-full"
+                        >
+                          <CheckCircle className="mr-2 h-4 w-4" />
+                          {isProcessing 
+                            ? 'Procesando...' 
+                            : (!selectedJornada.hora_checkout ? 'Aprobar Check-in' : 'Aprobar Check-out')
+                          }
+                        </Button>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Textarea
+                          placeholder={`Motivo de rechazo del ${!selectedJornada.hora_checkout ? 'check-in' : 'check-out'} (opcional para aprobar, requerido para rechazar)...`}
+                          value={newComment}
+                          onChange={(e) => setNewComment(e.target.value)}
+                        />
+                        <Button 
+                          variant="destructive" 
+                          onClick={handleReject}
+                          disabled={isProcessing}
+                          className="w-full"
+                        >
+                          <XCircle className="mr-2 h-4 w-4" />
+                          {isProcessing ? 'Procesando...' : 'Rechazar'}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                <div className="flex justify-end">
+                  <Button variant="outline" onClick={() => setSheetOpen(false)}>
+                    Cerrar
                   </Button>
                 </div>
-              </SheetFooter>
-            )}
-          </SheetContent>
-        </Sheet>
-      </CardContent>
-    </Card>
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
+    </div>
   );
 }

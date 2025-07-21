@@ -9,7 +9,9 @@ import {
   Actividad,
   CreateActividadDto,
   Comentario,
-  CreateComentarioDto
+  CreateComentarioDto,
+  Rol,
+  Area
 } from '@/types';
 
 class ApiService {
@@ -35,7 +37,7 @@ class ApiService {
       ...options,
       headers: {
         'Content-Type': 'application/json',
-        ...(this.token && { Authorization: `Bearer ${this.token}` }),
+        ...(this.token && { Authorization: `${this.token}` }),
         ...options.headers,
       },
     };
@@ -129,6 +131,10 @@ class ApiService {
     return this.request<Jornada[]>('/jornadas/aprobadas');
   }
 
+  async getJornadasForSupervisors() {
+    return this.request('/jornadas/todas-empleados');
+  }
+
   async getJornadasBySupervisor(supervisorId: number): Promise<Jornada[]> {
     return this.request<Jornada[]>(`/jornadas/supervisor/${supervisorId}`);
   }
@@ -163,7 +169,7 @@ class ApiService {
   }
 
   async getActividadesByJornada(jornadaId: number): Promise<Actividad[]> {
-    return this.request<Actividad[]>(`/actividades/jornada/${jornadaId}`);
+    return this.request<Actividad[]>(`/jornadas/actividades/${jornadaId}`);
   }
 
   async getActividad(id: number): Promise<Actividad> {
@@ -183,8 +189,8 @@ class ApiService {
     return this.request<Comentario[]>(`/comentarios/actividad/${actividadId}`);
   }
 
-  async getComentariosByJornada(jornadaId: number): Promise<Comentario[]> {
-    return this.request<Comentario[]>(`/comentarios/jornada/${jornadaId}`);
+  async getComentariosByJornada(jornadaId: number) {
+    return this.request(`/comentarios/jornada/${jornadaId}`);
   }
 
   // ============= USUARIOS METHODS =============
@@ -228,6 +234,32 @@ class ApiService {
     return this.request<User>(`/usuarios/${userId}/area`, {
       method: 'PUT',
       body: JSON.stringify({ id_area: areaId }),
+    });
+  }
+
+  // Métodos para roles
+  async getRoles(): Promise<Rol[]> {
+    return this.request<Rol[]>('/roles');
+  }
+
+  // Métodos para áreas
+  async getAreas(): Promise<Area[]> {
+    return this.request<Area[]>('/areas');
+  }
+
+  // ============= SPRINT/TAREAS PENDIENTES METHODS =============
+
+  async getTareasPendientes() {
+    return this.request('/jornadas/tareas-pendientes');
+  }
+
+  async checkinConTareasPendientes(data: {
+    checkinDto: CheckinDto;
+    tareasArrastradas: number[];
+  }): Promise<Jornada> {
+    return this.request<Jornada>('/jornadas/checkin-con-tareas-pendientes', {
+      method: 'POST',
+      body: JSON.stringify(data),
     });
   }
 }

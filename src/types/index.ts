@@ -54,8 +54,13 @@ export interface Jornada {
 }
 
 export interface CheckinDto {
-  id_supervisor: number;
   fecha: string;
+  comentario?: string;
+  tareas: {
+    tarea: string;
+    meta: string;
+    observaciones?: string;
+  }[];
 }
 
 export interface CheckoutDto {
@@ -71,6 +76,8 @@ export interface Actividad {
   meta: string;
   id_estado: number;
   observaciones?: string;
+  es_arrastrada?: boolean; // Si la tarea fue arrastrada de una jornada anterior
+  id_actividad_origen?: number; // ID de la actividad original si es arrastrada
   estado?: Estado;
   comentarios?: Comentario[];
 }
@@ -83,14 +90,23 @@ export interface CreateActividadDto {
   observaciones?: string;
 }
 
+// Sprint/Tareas pendientes types
+export interface TareaPendiente {
+  id: number;
+  tarea: string;
+  meta: string;
+  observaciones?: string;
+  fecha_origen: string;
+}
+
 // Comentario types
 export interface Comentario {
   id: number;
   id_actividad: number;
-  id_supervisor: number;
+  id_usuario: number;
   comentario: string;
   fecha_comentario: string;
-  supervisor?: User;
+  usuario?: User;
 }
 
 export interface CreateComentarioDto {
