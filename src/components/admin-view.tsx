@@ -283,15 +283,11 @@ export function AdminView() {
           </CardHeader>
           <CardContent className="space-y-2">
             <Button asChild variant="outline" className="w-full">
-              <Link href="/admin/usuarios">
+              <Link href="/admin/users">
                 Ver Usuarios
               </Link>
             </Button>
-            <Button asChild variant="outline" className="w-full">
-              <Link href="/admin/usuarios/nuevo">
-                Crear Usuario
-              </Link>
-            </Button>
+
           </CardContent>
         </Card>
 

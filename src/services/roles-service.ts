@@ -5,7 +5,7 @@ class RolesService {
   private token: string | null = null;
 
   constructor() {
-    this.baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+    this.baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
     if (typeof window !== 'undefined') {
       this.token = localStorage.getItem('auth_token');
     }
