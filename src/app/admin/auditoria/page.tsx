@@ -11,12 +11,14 @@ import Link from 'next/link';
 
 interface AuditoriaRecord {
   id: number;
+  id_usuario: number;
   accion: string;
-  detalles: string;
-  usuarioId?: number;
-  fechaCreacion: string;
+  fecha: string;
+  descripcion: string;
   usuario?: {
+    id: number;
     nombre: string;
+    apellido: string;
     email: string;
   };
 }
@@ -80,8 +82,9 @@ export default function AuditoriaPage() {
 
   const filteredAuditoria = auditoria.filter(record => 
     record.accion.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    record.detalles.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    record.descripcion.toLowerCase().includes(searchTerm.toLowerCase()) ||
     record.usuario?.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    record.usuario?.apellido.toLowerCase().includes(searchTerm.toLowerCase()) ||
     record.usuario?.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -110,9 +113,9 @@ export default function AuditoriaPage() {
     <div className="space-y-6">
       <div className="flex items-center gap-4">
         <Button asChild variant="outline" size="sm">
-          <Link href="/dashboard">
+          <Link href="/admin">
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Volver al Panel
+            Volver al Panel de Admin
           </Link>
         </Button>
         <div>
@@ -200,7 +203,7 @@ export default function AuditoriaPage() {
                 <p className="text-sm font-medium text-muted-foreground">Hoy</p>
                 <p className="text-2xl font-bold">
                   {auditoria.filter(r => 
-                    new Date(r.fechaCreacion).toDateString() === new Date().toDateString()
+                    new Date(r.fecha).toDateString() === new Date().toDateString()
                   ).length}
                 </p>
               </div>
@@ -249,15 +252,15 @@ export default function AuditoriaPage() {
                       {record.usuario && (
                         <span className="text-sm text-muted-foreground flex items-center gap-1">
                           <User className="h-3 w-3" />
-                          {record.usuario.nombre}
+                          {record.usuario.nombre} {record.usuario.apellido}
                         </span>
                       )}
                     </div>
                     <span className="text-xs text-muted-foreground">
-                      {formatFecha(record.fechaCreacion)}
+                      {formatFecha(record.fecha)}
                     </span>
                   </div>
-                  <p className="text-sm text-gray-700">{record.detalles}</p>
+                  <p className="text-sm text-gray-700">{record.descripcion}</p>
                   {record.usuario && (
                     <p className="text-xs text-muted-foreground mt-1">
                       {record.usuario.email}

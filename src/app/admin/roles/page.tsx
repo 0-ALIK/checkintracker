@@ -12,7 +12,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { DashboardHeader } from "@/components/dashboard-header";
 import { Rol } from "@/types";
-import { Plus, Pencil, Trash2, Shield } from "lucide-react";
+import { Plus, Pencil, Trash2, Shield, ArrowLeft } from "lucide-react";
+import Link from "next/link";
 
 export default function RolesPage() {
   const [roles, setRoles] = useState<Rol[]>([]);
@@ -160,7 +161,15 @@ export default function RolesPage() {
     <div className="min-h-screen bg-background">
       <DashboardHeader />
       <div className="container mx-auto p-6">
-      <Card>
+        <div className="mb-6 flex items-center gap-4">
+          <Button asChild variant="outline" size="sm">
+            <Link href="/admin">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Volver al Panel de Admin
+            </Link>
+          </Button>
+        </div>
+        <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>

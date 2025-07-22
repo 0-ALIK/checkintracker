@@ -7,6 +7,8 @@ import { DashboardHeader } from "@/components/dashboard-header";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
+import { ArrowLeft, Plus } from "lucide-react";
+import Link from "next/link";
 
 export default function UsersPage() {
   const [users, setUsers] = useState<any[]>([]);
@@ -54,10 +56,24 @@ export default function UsersPage() {
     <div className="min-h-screen bg-background">
       <DashboardHeader />
       <div className="container py-8 max-w-3xl">
-      <Card>
-        <CardHeader>
-          <CardTitle>Gestión de Usuarios</CardTitle>
-          <CardDescription>Crear y editar usuarios, asignar roles y áreas</CardDescription>
+        <div className="mb-6 flex items-center gap-4">
+          <Button asChild variant="outline" size="sm">
+            <Link href="/admin">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Volver al Panel de Admin
+            </Link>
+          </Button>
+        </div>
+        <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Gestión de Usuarios</CardTitle>
+            <CardDescription>Crear y editar usuarios, asignar roles y áreas</CardDescription>
+          </div>
+          <Button onClick={handleNew} className="ml-auto">
+            <Plus className="h-4 w-4 mr-2" />
+            Nuevo Usuario
+          </Button>
         </CardHeader>
         <CardContent>
           {showForm ? (

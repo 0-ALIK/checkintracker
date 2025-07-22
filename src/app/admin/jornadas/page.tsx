@@ -14,9 +14,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Jornada } from "@/types";
 import { JornadaDetails } from "@/components/jornada-details";
 import { DashboardHeader } from "@/components/dashboard-header";
-import { CheckCircle, XCircle, Clock, Eye } from "lucide-react";
+import { CheckCircle, XCircle, Clock, Eye, ArrowLeft } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
+import Link from "next/link";
 
 export default function JornadasPage() {
   const [jornadas, setJornadas] = useState<Jornada[]>([]);
@@ -177,7 +178,15 @@ export default function JornadasPage() {
     <div className="min-h-screen bg-background">
       <DashboardHeader />
       <div className="container mx-auto p-6">
-      <Card>
+        <div className="mb-6 flex items-center gap-4">
+          <Button asChild variant="outline" size="sm">
+            <Link href="/admin">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Volver al Panel de Admin
+            </Link>
+          </Button>
+        </div>
+        <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>

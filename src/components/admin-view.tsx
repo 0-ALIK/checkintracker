@@ -176,7 +176,7 @@ export function AdminView() {
         <h1 className="text-3xl font-bold text-gray-900">Panel de Administración</h1>
         <div className="flex gap-2">
           <Button asChild>
-            <Link href="/admin/usuarios/nuevo">
+            <Link href="/admin/users">
               <Plus className="h-4 w-4 mr-2" />
               Nuevo Usuario
             </Link>
@@ -287,7 +287,11 @@ export function AdminView() {
                 Ver Usuarios
               </Link>
             </Button>
-
+            <Button asChild variant="outline" className="w-full">
+              <Link href="/admin/users">
+                Crear Usuario
+              </Link>
+            </Button>
           </CardContent>
         </Card>
 
@@ -332,7 +336,7 @@ export function AdminView() {
               </Link>
             </Button>
             <Button asChild variant="outline" className="w-full">
-              <Link href="/admin/informes">
+              <Link href="/admin/jornadas">
                 Generar Informes
               </Link>
             </Button>
@@ -351,7 +355,7 @@ export function AdminView() {
           </CardHeader>
           <CardContent className="space-y-2">
             <Button asChild variant="outline" className="w-full">
-              <Link href="/admin/reportes">
+              <Link href="/admin/jornadas">
                 Ver Reportes
               </Link>
             </Button>
