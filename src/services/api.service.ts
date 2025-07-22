@@ -295,6 +295,32 @@ class ApiService {
       method: 'POST',
     });
   }
+
+  // ============= BACKUP METHODS =============
+
+  async ejecutarBackupManual() {
+    return this.request('/backup/ejecutar', {
+      method: 'POST',
+    });
+  }
+
+  async obtenerInfoBackups() {
+    return this.request('/backup/info');
+  }
+
+  async probarEmailBackup(email: string, tipo: 'exitoso' | 'error') {
+    return this.request('/backup/test-email', {
+      method: 'POST',
+      body: JSON.stringify({ email, tipo }),
+    });
+  }
+
+  // Método para limpiar auditorías
+  async limpiarAuditorias() {
+    return this.request('/auditoria/limpiar', {
+      method: 'POST',
+    });
+  }
 }
 
 // Exportar instancia única

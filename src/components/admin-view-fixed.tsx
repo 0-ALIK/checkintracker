@@ -112,7 +112,7 @@ export function AdminView() {
   const ejecutarBackupManual = async () => {
     setCronLoading(prev => ({ ...prev, backup: true }));
     try {
-      const response = await apiService.ejecutarBackupManual() as { mensaje?: string };
+      const response = await apiService.ejecutarBackupManual();
       toast({
         title: "Éxito",
         description: response.mensaje || "Backup ejecutado correctamente",
