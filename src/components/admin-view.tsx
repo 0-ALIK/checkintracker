@@ -4,8 +4,9 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Users, FileText, Settings, BarChart, Plus, AlertCircle } from 'lucide-react';
+import { Users, FileText, Settings, BarChart, Plus, AlertCircle, Database, Play, RefreshCw } from 'lucide-react';
 import { dashboardService, DashboardStats } from '@/services/dashboard.service';
+import { apiService } from '@/services/api.service';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 
@@ -20,6 +21,7 @@ export function AdminView() {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [cronLoading, setCronLoading] = useState<{[key: string]: boolean}>({});
   const { toast } = useToast();
 
   useEffect(() => {
@@ -46,6 +48,66 @@ export function AdminView() {
 
   const formatNumber = (num: number) => {
     return num.toLocaleString();
+  };
+
+  const ejecutarCronInformes = async () => {
+    setCronLoading(prev => ({ ...prev, informes: true }));
+    try {
+      const resultado = await apiService.ejecutarCronInformes();
+      toast({
+        title: "✅ Cron Ejecutado",
+        description: "El proceso de envío de informes se ejecutó correctamente",
+      });
+      console.log('Resultado cron informes:', resultado);
+    } catch (error: any) {
+      toast({
+        title: "❌ Error",
+        description: error.message || "Error al ejecutar el cron de informes",
+        variant: "destructive",
+      });
+    } finally {
+      setCronLoading(prev => ({ ...prev, informes: false }));
+    }
+  };
+
+  const ejecutarCronLimpieza = async () => {
+    setCronLoading(prev => ({ ...prev, limpieza: true }));
+    try {
+      const resultado = await apiService.ejecutarCronLimpieza();
+      toast({
+        title: "✅ Limpieza Ejecutada",
+        description: "La limpieza de auditorías se ejecutó correctamente",
+      });
+      console.log('Resultado cron limpieza:', resultado);
+    } catch (error: any) {
+      toast({
+        title: "❌ Error",
+        description: error.message || "Error al ejecutar la limpieza",
+        variant: "destructive",
+      });
+    } finally {
+      setCronLoading(prev => ({ ...prev, limpieza: false }));
+    }
+  };
+
+  const limpiarAuditorias = async () => {
+    setCronLoading(prev => ({ ...prev, limpiarManual: true }));
+    try {
+      const resultado = await apiService.limpiarAuditoriasManual(90) as any;
+      toast({
+        title: "✅ Limpieza Manual Completada",
+        description: `Se eliminaron ${resultado.registrosEliminados || 0} registros de auditoría`,
+      });
+      console.log('Resultado limpieza manual:', resultado);
+    } catch (error: any) {
+      toast({
+        title: "❌ Error",
+        description: error.message || "Error en la limpieza manual",
+        variant: "destructive",
+      });
+    } finally {
+      setCronLoading(prev => ({ ...prev, limpiarManual: false }));
+    }
   };
 
   if (loading) {
@@ -198,6 +260,124 @@ export function AdminView() {
         </Card>
       </div>
 
+      {/* Nueva sección: Administración del Sistema */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <Card className="hover:shadow-lg transition-shadow">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Database className="h-5 w-5 text-orange-600" />
+              Gestión de Auditorías
+            </CardTitle>
+            <CardDescription>
+              Administrar registros de auditoría del sistema
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="text-sm text-muted-foreground">
+              <p>• Ver logs de auditoría</p>
+              <p>• Limpiar registros antiguos</p>
+              <p>• Monitorear actividad</p>
+            </div>
+            <div className="space-y-2">
+              <Button 
+                variant="outline" 
+                className="w-full" 
+                onClick={limpiarAuditorias}
+                disabled={cronLoading.limpiarManual}
+              >
+                {cronLoading.limpiarManual ? (
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Database className="h-4 w-4 mr-2" />
+                )}
+                Limpiar Auditorías (90 días)
+              </Button>
+              <Button asChild variant="outline" size="sm" className="w-full">
+                <Link href="/admin/auditoria">
+                  Ver Registros de Auditoría
+                </Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="hover:shadow-lg transition-shadow">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Play className="h-5 w-5 text-emerald-600" />
+              Procesos Automáticos
+            </CardTitle>
+            <CardDescription>
+              Ejecutar manualmente procesos del sistema
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="text-sm text-muted-foreground">
+              <p>• Envío de informes diarios</p>
+              <p>• Limpieza automática</p>
+              <p>• Mantenimiento del sistema</p>
+            </div>
+            <div className="space-y-2">
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={ejecutarCronInformes}
+                disabled={cronLoading.informes}
+              >
+                {cronLoading.informes ? (
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <FileText className="h-4 w-4 mr-2" />
+                )}
+                Enviar Informes Diarios
+              </Button>
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={ejecutarCronLimpieza}
+                disabled={cronLoading.limpieza}
+              >
+                {cronLoading.limpieza ? (
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Database className="h-4 w-4 mr-2" />
+                )}
+                Ejecutar Limpieza Auto
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="hover:shadow-lg transition-shadow">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart className="h-5 w-5 text-blue-600" />
+              Monitoreo del Sistema
+            </CardTitle>
+            <CardDescription>
+              Estado y métricas del sistema
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="text-sm text-muted-foreground">
+              <p>• Estado de procesos cron</p>
+              <p>• Métricas de rendimiento</p>
+              <p>• Logs del sistema</p>
+            </div>
+            <div className="space-y-2">
+              <Button variant="outline" className="w-full" onClick={loadStats}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Actualizar Estadísticas
+              </Button>
+              <div className="text-xs text-muted-foreground p-2 bg-secondary/30 rounded">
+                <p>🕰️ Informes: Diarios a las 22:00</p>
+                <p>🧹 Limpieza: Domingos a las 02:00</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+      
       {error && (
         <Card className="border-red-200 bg-red-50">
           <CardContent className="pt-6">

@@ -262,6 +262,39 @@ class ApiService {
       body: JSON.stringify(data),
     });
   }
+
+  // ============= AUDITORÍA METHODS =============
+
+  async getAuditorias() {
+    return this.request('/auditoria');
+  }
+
+  async getAuditoriasPorUsuario(usuarioId: number) {
+    return this.request(`/auditoria/usuario/${usuarioId}`);
+  }
+
+  async getAuditoriasPorFecha(fechaInicio: string, fechaFin: string) {
+    return this.request(`/auditoria/fecha?fechaInicio=${fechaInicio}&fechaFin=${fechaFin}`);
+  }
+
+  async limpiarAuditoriasManual(dias?: number) {
+    return this.request('/auditoria/limpiar', {
+      method: 'POST',
+      body: JSON.stringify({ dias }),
+    });
+  }
+
+  async ejecutarCronInformes() {
+    return this.request('/auditoria/ejecutar-cron-informes', {
+      method: 'POST',
+    });
+  }
+
+  async ejecutarCronLimpieza() {
+    return this.request('/auditoria/ejecutar-cron-limpieza', {
+      method: 'POST',
+    });
+  }
 }
 
 // Exportar instancia única
