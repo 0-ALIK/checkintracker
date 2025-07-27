@@ -58,7 +58,7 @@ export default function UsersPage() {
       <div className="container py-8 max-w-3xl">
         <div className="mb-6 flex items-center gap-4">
           <Button asChild variant="outline" size="sm">
-            <Link href="/admin">
+            <Link href="/dashboard">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Volver al Panel de Admin
             </Link>

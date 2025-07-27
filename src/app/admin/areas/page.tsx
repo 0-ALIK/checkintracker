@@ -163,7 +163,7 @@ export default function AreasPage() {
       <div className="container mx-auto p-6">
         <div className="mb-6 flex items-center gap-4">
           <Button asChild variant="outline" size="sm">
-            <Link href="/admin">
+            <Link href="/dashboard">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Volver al Panel de Admin
             </Link>

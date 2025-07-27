@@ -65,19 +65,7 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-background">
       <DashboardHeader />
       <main className="container mx-auto max-w-7xl p-4 sm:p-6 md:p-8">
-        <div className="mb-8">
-          <h1 className="font-headline text-3xl font-bold">
-            ¡Bienvenido, {user.nombre}!
-          </h1>
-          <p className="text-muted-foreground">
-            {new Date().toLocaleDateString('es-ES', { 
-              weekday: 'long', 
-              year: 'numeric', 
-              month: 'long', 
-              day: 'numeric' 
-            })}
-          </p>
-        </div>
+
         {renderView()}
       </main>
     </div>

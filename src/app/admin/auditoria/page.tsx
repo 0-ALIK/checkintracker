@@ -113,7 +113,7 @@ export default function AuditoriaPage() {
     <div className="space-y-6">
       <div className="flex items-center gap-4">
         <Button asChild variant="outline" size="sm">
-          <Link href="/admin">
+          <Link href="/dasboard">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Volver al Panel de Admin
           </Link>

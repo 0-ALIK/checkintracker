@@ -11,6 +11,12 @@ export interface DashboardStats {
   pendientesAprobacion: number;
 }
 
+export interface AdminDashboardStats {
+  totalUsers: number;
+  totalAreas: number;
+  totalRoles: number;
+}
+
 class DashboardService {
   async getAdminStats(): Promise<DashboardStats> {
     try {
@@ -40,6 +46,30 @@ class DashboardService {
         jornadasHoy: 0,
         jornadasCompletadas: 0,
         pendientesAprobacion: 0,
+      };
+    }
+  }
+
+  async getAdminOnlyStats(): Promise<AdminDashboardStats> {
+    try {
+      // Solo obtener datos administrativos (usuarios, áreas, roles)
+      const [usuarios, areas, roles] = await Promise.all([
+        usersService.getUsuarios(),
+        apiService.getAreas(),
+        apiService.getRoles()
+      ]);
+
+      return {
+        totalUsers: usuarios.length,
+        totalAreas: areas.length,
+        totalRoles: roles.length,
+      };
+    } catch (error) {
+      console.error('Error obteniendo estadísticas administrativas:', error);
+      return {
+        totalUsers: 0,
+        totalAreas: 0,
+        totalRoles: 0,
       };
     }
   }

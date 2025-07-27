@@ -60,12 +60,12 @@ export function EmployeeView() {
     checkCurrentJornada();
     loadTareasPendientes();
     
-    // Actualizar cada 10 segundos si hay una jornada activa
+    // Actualizar cada 30 segundos si hay una jornada activa (reducido de 10 segundos)
     const interval = setInterval(() => {
-      if (isCheckedIn) {
+      if (isCheckedIn && document.visibilityState === 'visible') {
         checkCurrentJornada();
       }
-    }, 10000);
+    }, 30000);
     
     return () => clearInterval(interval);
   }, [isCheckedIn]);

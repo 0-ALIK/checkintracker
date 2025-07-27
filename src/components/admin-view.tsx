@@ -6,19 +6,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Users, FileText, Settings, BarChart, Plus, AlertCircle, Database, Play, RefreshCw, HardDrive, Mail } from 'lucide-react';
-import { dashboardService, DashboardStats } from '@/services/dashboard.service';
+import { dashboardService, AdminDashboardStats } from '@/services/dashboard.service';
 import { apiService } from '@/services/api.service';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 
 export function AdminView() {
-  const [stats, setStats] = useState<DashboardStats>({
+  const [stats, setStats] = useState<AdminDashboardStats>({
     totalUsers: 0,
     totalAreas: 0,
     totalRoles: 0,
-    jornadasHoy: 0,
-    jornadasCompletadas: 0,
-    pendientesAprobacion: 0,
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -34,7 +31,7 @@ export function AdminView() {
     try {
       setLoading(true);
       setError(null);
-      const data = await dashboardService.getAdminStats();
+      const data = await dashboardService.getAdminOnlyStats();
       setStats(data);
     } catch (err: any) {
       setError(err.message || 'Error al cargar estadísticas');
@@ -188,8 +185,8 @@ export function AdminView() {
         </div>
       </div>
 
-      {/* Estadísticas principales */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
+      {/* Estadísticas principales - Solo datos administrativos */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <Card className="hover:shadow-lg transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Usuarios</CardTitle>
@@ -228,49 +225,10 @@ export function AdminView() {
             </p>
           </CardContent>
         </Card>
-
-        <Card className="hover:shadow-lg transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Jornadas Hoy</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.jornadasHoy}</div>
-            <p className="text-xs text-muted-foreground">
-              Jornadas registradas hoy
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="hover:shadow-lg transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Completadas</CardTitle>
-            <FileText className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{stats.jornadasCompletadas}</div>
-            <p className="text-xs text-muted-foreground">
-              Jornadas finalizadas
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="hover:shadow-lg transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pendientes</CardTitle>
-            <FileText className="h-4 w-4 text-orange-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-600">{stats.pendientesAprobacion}</div>
-            <p className="text-xs text-muted-foreground">
-              Esperando aprobación
-            </p>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Acciones rápidas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <Card className="hover:shadow-lg transition-shadow">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -319,29 +277,7 @@ export function AdminView() {
           </CardContent>
         </Card>
 
-        <Card className="hover:shadow-lg transition-shadow">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-purple-600" />
-              Jornadas
-            </CardTitle>
-            <CardDescription>
-              Gestión de jornadas laborales
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <Button asChild variant="outline" className="w-full">
-              <Link href="/admin/jornadas">
-                Ver Jornadas
-              </Link>
-            </Button>
-            <Button asChild variant="outline" className="w-full">
-              <Link href="/admin/jornadas">
-                Generar Informes
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
+ 
 
         <Card className="hover:shadow-lg transition-shadow">
           <CardHeader>
