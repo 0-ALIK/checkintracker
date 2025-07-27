@@ -423,6 +423,163 @@ export function SupervisorView() {
         </Card>
       </div>
 
+        <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="h-5 w-5" />
+            Gestión de Jornadas Activas
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {jornadas.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <p>No hay jornadas de empleados registradas</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Empleado</TableHead>
+                  <TableHead>Área</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead>Fecha</TableHead>
+                  <TableHead>Check-in</TableHead>
+                  <TableHead>Check-out</TableHead>
+                  <TableHead>Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+              {jornadas.map((jornada) => (
+                <TableRow key={jornada.id_jornada}>
+                  <TableCell>
+                    <div className="flex items-center space-x-3">
+                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-muted">
+                        <span className="text-sm font-medium">
+                          {jornada.usuario ? `${jornada.usuario.nombre.charAt(0)}${jornada.usuario.apellido.charAt(0)}` : 'U'}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="font-medium">
+                          {jornada.usuario ? `${jornada.usuario.nombre} ${jornada.usuario.apellido}` : 'Usuario Desconocido'}
+                        </p>
+                        <p className="text-sm text-muted-foreground">{jornada.usuario?.email}</p>
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {jornada.usuario?.area?.nombre_area || 'No asignada'}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="secondary" className={`${getStatusColor(jornada.status)} text-white`}>
+                      <div className="flex items-center space-x-1">
+                        {getStatusIcon(jornada.status)}
+                        <span>
+                          {jornada.status === 'Online' && 'Trabajando'}
+                          {jornada.status === 'Pending Approval' && (jornada.hora_checkout ? 'Check-out Pendiente' : 'Check-in Pendiente')}
+                          {jornada.status === 'Approved' && 'Aprobado'}
+                          {jornada.status === 'Offline' && 'Desconectado'}
+                        </span>
+                      </div>
+                    </Badge>
+                  </TableCell>
+                  <TableCell>{formatDate(jornada.fecha)}</TableCell>
+                  <TableCell>{formatTime(jornada.hora_checkin)}</TableCell>
+                  <TableCell>
+                    {jornada.hora_checkout ? formatTime(jornada.hora_checkout) : 'En curso'}
+                  </TableCell>
+                  <TableCell>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => loadJornadaDetails(jornada)}
+                    >
+                      <Eye className="mr-1 h-3 w-3" />
+                      Ver Detalles
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          )}
+        </CardContent>
+      </Card>
+      {/* Progreso Individual de Empleados */}
+      {employeesProgress.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Progreso Individual de Empleados
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Seguimiento detallado del rendimiento de cada empleado
+            </p>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {employeesProgress.map((empleado) => (
+                <div key={empleado.id_usuario} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center space-x-3">
+                      <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary/10">
+                        <span className="text-sm font-medium text-primary">
+                          {empleado.nombre.charAt(0)}{empleado.apellido.charAt(0)}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="font-medium text-sm">{empleado.nombre} {empleado.apellido}</p>
+                        <p className="text-xs text-muted-foreground">{empleado.area}</p>
+                      </div>
+                    </div>
+                    <Badge 
+                      variant="secondary" 
+                      className={`${getStatusColor(empleado.estado_jornada)} text-white text-xs`}
+                    >
+                      {empleado.estado_jornada === 'Online' && 'Trabajando'}
+                      {empleado.estado_jornada === 'Pending Approval' && 'Pendiente'}
+                      {empleado.estado_jornada === 'Approved' && 'Completado'}
+                      {empleado.estado_jornada === 'Offline' && 'Desconectado'}
+                    </Badge>
+                  </div>
+                  
+                  <div className="grid grid-cols-4 gap-2 mb-3 text-center">
+                    <div className="bg-gray-50 rounded p-2">
+                      <div className="text-lg font-bold text-gray-800">{empleado.total_actividades}</div>
+                      <div className="text-xs text-muted-foreground">Total</div>
+                    </div>
+                    <div className="bg-green-50 rounded p-2">
+                      <div className="text-lg font-bold text-green-600">{empleado.completadas}</div>
+                      <div className="text-xs text-muted-foreground">Completadas</div>
+                    </div>
+                    <div className="bg-yellow-50 rounded p-2">
+                      <div className="text-lg font-bold text-yellow-600">{empleado.en_progreso}</div>
+                      <div className="text-xs text-muted-foreground">En Progreso</div>
+                    </div>
+                    <div className="bg-gray-50 rounded p-2">
+                      <div className="text-lg font-bold text-gray-600">{empleado.pendientes}</div>
+                      <div className="text-xs text-muted-foreground">Pendientes</div>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium">Progreso:</span>
+                      <span className="text-sm font-bold text-primary">{empleado.progreso_porcentaje}%</span>
+                    </div>
+                    <div className="w-full bg-secondary rounded-full h-3">
+                      <div 
+                        className="bg-gradient-to-r from-green-500 to-green-600 h-3 rounded-full transition-all duration-500 ease-out" 
+                        style={{ width: `${empleado.progreso_porcentaje}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
       {/* Gráficas de Progreso */}
       <div className="grid grid-cols-1 2xl:grid-cols-2 gap-8">
         <Card className="col-span-1">
@@ -583,165 +740,10 @@ export function SupervisorView() {
         </Card>
       )}
 
-      {/* Progreso Individual de Empleados */}
-      {employeesProgress.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5" />
-              Progreso Individual de Empleados
-            </CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Seguimiento detallado del rendimiento de cada empleado
-            </p>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {employeesProgress.map((empleado) => (
-                <div key={empleado.id_usuario} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center space-x-3">
-                      <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary/10">
-                        <span className="text-sm font-medium text-primary">
-                          {empleado.nombre.charAt(0)}{empleado.apellido.charAt(0)}
-                        </span>
-                      </div>
-                      <div>
-                        <p className="font-medium text-sm">{empleado.nombre} {empleado.apellido}</p>
-                        <p className="text-xs text-muted-foreground">{empleado.area}</p>
-                      </div>
-                    </div>
-                    <Badge 
-                      variant="secondary" 
-                      className={`${getStatusColor(empleado.estado_jornada)} text-white text-xs`}
-                    >
-                      {empleado.estado_jornada === 'Online' && 'Trabajando'}
-                      {empleado.estado_jornada === 'Pending Approval' && 'Pendiente'}
-                      {empleado.estado_jornada === 'Approved' && 'Completado'}
-                      {empleado.estado_jornada === 'Offline' && 'Desconectado'}
-                    </Badge>
-                  </div>
-                  
-                  <div className="grid grid-cols-4 gap-2 mb-3 text-center">
-                    <div className="bg-gray-50 rounded p-2">
-                      <div className="text-lg font-bold text-gray-800">{empleado.total_actividades}</div>
-                      <div className="text-xs text-muted-foreground">Total</div>
-                    </div>
-                    <div className="bg-green-50 rounded p-2">
-                      <div className="text-lg font-bold text-green-600">{empleado.completadas}</div>
-                      <div className="text-xs text-muted-foreground">Completadas</div>
-                    </div>
-                    <div className="bg-yellow-50 rounded p-2">
-                      <div className="text-lg font-bold text-yellow-600">{empleado.en_progreso}</div>
-                      <div className="text-xs text-muted-foreground">En Progreso</div>
-                    </div>
-                    <div className="bg-gray-50 rounded p-2">
-                      <div className="text-lg font-bold text-gray-600">{empleado.pendientes}</div>
-                      <div className="text-xs text-muted-foreground">Pendientes</div>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium">Progreso:</span>
-                      <span className="text-sm font-bold text-primary">{empleado.progreso_porcentaje}%</span>
-                    </div>
-                    <div className="w-full bg-secondary rounded-full h-3">
-                      <div 
-                        className="bg-gradient-to-r from-green-500 to-green-600 h-3 rounded-full transition-all duration-500 ease-out" 
-                        style={{ width: `${empleado.progreso_porcentaje}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+
 
       {/* Gestión de Jornadas */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            Gestión de Jornadas Activas
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {jornadas.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <p>No hay jornadas de empleados registradas</p>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Empleado</TableHead>
-                  <TableHead>Área</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead>Fecha</TableHead>
-                  <TableHead>Check-in</TableHead>
-                  <TableHead>Check-out</TableHead>
-                  <TableHead>Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-              {jornadas.map((jornada) => (
-                <TableRow key={jornada.id_jornada}>
-                  <TableCell>
-                    <div className="flex items-center space-x-3">
-                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-muted">
-                        <span className="text-sm font-medium">
-                          {jornada.usuario ? `${jornada.usuario.nombre.charAt(0)}${jornada.usuario.apellido.charAt(0)}` : 'U'}
-                        </span>
-                      </div>
-                      <div>
-                        <p className="font-medium">
-                          {jornada.usuario ? `${jornada.usuario.nombre} ${jornada.usuario.apellido}` : 'Usuario Desconocido'}
-                        </p>
-                        <p className="text-sm text-muted-foreground">{jornada.usuario?.email}</p>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {jornada.usuario?.area?.nombre_area || 'No asignada'}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="secondary" className={`${getStatusColor(jornada.status)} text-white`}>
-                      <div className="flex items-center space-x-1">
-                        {getStatusIcon(jornada.status)}
-                        <span>
-                          {jornada.status === 'Online' && 'Trabajando'}
-                          {jornada.status === 'Pending Approval' && (jornada.hora_checkout ? 'Check-out Pendiente' : 'Check-in Pendiente')}
-                          {jornada.status === 'Approved' && 'Aprobado'}
-                          {jornada.status === 'Offline' && 'Desconectado'}
-                        </span>
-                      </div>
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{formatDate(jornada.fecha)}</TableCell>
-                  <TableCell>{formatTime(jornada.hora_checkin)}</TableCell>
-                  <TableCell>
-                    {jornada.hora_checkout ? formatTime(jornada.hora_checkout) : 'En curso'}
-                  </TableCell>
-                  <TableCell>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => loadJornadaDetails(jornada)}
-                    >
-                      <Eye className="mr-1 h-3 w-3" />
-                      Ver Detalles
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          )}
-        </CardContent>
-      </Card>
+    
 
       {/* Sheet para ver detalles */}
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
