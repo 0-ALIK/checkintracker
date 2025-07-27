@@ -86,6 +86,22 @@ class JornadasService {
       body: JSON.stringify(data),
     });
   }
+
+  async getStats(userId: number, startDate: string, endDate: string): Promise<{
+    total_jornadas: number;
+    horas_trabajadas: number;
+    actividades_completadas: number;
+  }[]> {
+    const params = new URLSearchParams({
+      startDate,
+      endDate,
+    });
+    return this.request<{
+      total_jornadas: number;
+      horas_trabajadas: number;
+      actividades_completadas: number;
+    }[]>(`/jornadas/stats/${userId}?${params}`);
+  }
 }
 
 export const jornadasService = new JornadasService();
