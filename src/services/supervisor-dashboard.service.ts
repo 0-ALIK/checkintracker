@@ -112,11 +112,14 @@ class SupervisorDashboardService {
 
     try {
       const jornadas = await apiService.getJornadasForSupervisors() as any[];
-      const hoy = new Date().toISOString().split('T')[0];
+      const hoy_date = new Date();
+      const hoy = hoy_date.getFullYear() + '-' + 
+                 String(hoy_date.getMonth() + 1).padStart(2, '0') + '-' + 
+                 String(hoy_date.getDate()).padStart(2, '0');
       
       // Filtrar jornadas de hoy
       const jornadasHoy = jornadas.filter((j: any) => 
-        j.fecha && j.fecha.startsWith(hoy)
+        j.fecha && j.fecha.split('T')[0] === hoy
       );
       
       const jornadasCompletadas = jornadasHoy.filter((j: any) => 
@@ -175,11 +178,14 @@ class SupervisorDashboardService {
   async getEmployeesProgress(): Promise<EmployeeProgress[]> {
     try {
       const jornadas = await apiService.getJornadasForSupervisors() as any[];
-      const hoy = new Date().toISOString().split('T')[0];
+      const hoy_date = new Date();
+      const hoy = hoy_date.getFullYear() + '-' + 
+                 String(hoy_date.getMonth() + 1).padStart(2, '0') + '-' + 
+                 String(hoy_date.getDate()).padStart(2, '0');
       
       // Agrupar jornadas por empleado (solo las de hoy)
       const jornadasHoy = jornadas.filter((j: any) => 
-        j.fecha && j.fecha.startsWith(hoy)
+        j.fecha && j.fecha.split('T')[0] === hoy
       );
 
       const empleadosMap = new Map();

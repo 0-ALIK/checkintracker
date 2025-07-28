@@ -11,6 +11,7 @@ import {
   clearSupervisorCache,
   SupervisorDashboardStats,
   EmployeeProgress,
+  ChartData,
 } from "@/services/supervisor-dashboard.service";
 
 // Componentes modulares
@@ -56,8 +57,7 @@ export function SupervisorView() {
   const [comentarios, setComentarios] = useState<Comentario[]>([]);
   const [newComment, setNewComment] = useState("");
   const [selectedActivityId, setSelectedActivityId] = useState<number | null>(null);
-  const [detailsModalOpen, setDetailsModalOpen] = useState(false);
-  const [approvalSheetOpen, setApprovalSheetOpen] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Estados para dashboard
@@ -71,6 +71,9 @@ export function SupervisorView() {
     progresoPromedio: 0,
   });
   const [employeesProgress, setEmployeesProgress] = useState<EmployeeProgress[]>([]);
+  const [activitiesChart, setActivitiesChart] = useState<ChartData[]>([]);
+  const [statusChart, setStatusChart] = useState<ChartData[]>([]);
+  const [areaProgressChart, setAreaProgressChart] = useState<ChartData[]>([]);
   const [dashboardLoading, setDashboardLoading] = useState(true);
 
   // Estados para jornadas
@@ -121,13 +124,19 @@ export function SupervisorView() {
 
     try {
       setDashboardLoading(true);
-      const [statsData, progressData] = await Promise.all([
+      const [statsData, progressData, chartData, statusData, areaData] = await Promise.all([
         supervisorDashboardService.getSupervisorStats(),
         supervisorDashboardService.getEmployeesProgress(),
+        supervisorDashboardService.getActivitiesChartData(),
+        supervisorDashboardService.getEmployeeStatusChartData(),
+        supervisorDashboardService.getAreaProgressChartData(),
       ]);
 
       setStats(statsData);
       setEmployeesProgress(progressData);
+      setActivitiesChart(chartData);
+      setStatusChart(statusData);
+      setAreaProgressChart(areaData);
     } catch (error) {
       console.error("Error loading dashboard data:", error);
       toast({
@@ -324,14 +333,7 @@ export function SupervisorView() {
   // Handlers para jornadas
   const loadJornadaDetails = async (jornada: EmployeeJornada) => {
     setSelectedJornada(jornada);
-    
-    // Si la jornada necesita aprobación, abrir el sheet de aprobación
-    if (jornada.status === "Pending Approval" && !jornada.aprobado) {
-      setApprovalSheetOpen(true);
-    } else {
-      // Para jornadas aprobadas o que no necesitan aprobación, abrir el modal de detalles
-      setDetailsModalOpen(true);
-    }
+    setSheetOpen(true);
 
     try {
       const [acts, comments] = await Promise.all([
@@ -360,7 +362,7 @@ export function SupervisorView() {
       });
 
       setSelectedJornada(prev => prev ? { ...prev, aprobado: true } : null);
-      setApprovalSheetOpen(false);
+      setSheetOpen(false);
       loadJornadas();
     } catch (error) {
       toast({
@@ -392,7 +394,7 @@ export function SupervisorView() {
         description: "La jornada ha sido rechazada",
       });
 
-      setApprovalSheetOpen(false);
+      setSheetOpen(false);
       setNewComment("");
       loadJornadas();
     } catch (error) {
@@ -571,8 +573,8 @@ export function SupervisorView() {
       {/* Modal de Detalles de Jornada */}
       <JornadaDetails
         jornada={selectedJornada}
-        isOpen={detailsModalOpen}
-        onOpenChange={setDetailsModalOpen}
+        isOpen={sheetOpen}
+        onOpenChange={setSheetOpen}
         getStatusColor={getStatusColor}
         getStatusIcon={getStatusIcon}
         formatTime={formatTime}
@@ -581,7 +583,7 @@ export function SupervisorView() {
       />
 
       {/* Sheet para acciones de aprobación - Mantener funcionalidad original */}
-      <Sheet open={approvalSheetOpen} onOpenChange={setApprovalSheetOpen}>
+      <Sheet open={sheetOpen && selectedJornada?.status === "Pending Approval"} onOpenChange={setSheetOpen}>
         <SheetContent className="w-[600px] sm:w-[700px] overflow-y-auto">
           {selectedJornada && (
             <>
@@ -734,7 +736,7 @@ export function SupervisorView() {
                 )}
 
                 <div className="flex justify-end">
-                  <Button variant="outline" onClick={() => setApprovalSheetOpen(false)}>
+                  <Button variant="outline" onClick={() => setSheetOpen(false)}>
                     Cerrar
                   </Button>
                 </div>

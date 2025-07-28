@@ -107,7 +107,10 @@ export function EmployeeView() {
   const checkCurrentJornada = async () => {
     try {
       const historial = await apiService.getMiHistorial();
-      const today = new Date().toISOString().split('T')[0];
+      const today_date = new Date();
+      const today = today_date.getFullYear() + '-' + 
+                   String(today_date.getMonth() + 1).padStart(2, '0') + '-' + 
+                   String(today_date.getDate()).padStart(2, '0');
       const todayJornada = historial.find(j => 
         j.fecha.split('T')[0] === today && !j.hora_checkout
       );

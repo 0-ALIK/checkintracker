@@ -290,11 +290,7 @@ export function AdminView() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
-            <Button asChild variant="outline" className="w-full">
-              <Link href="/admin/jornadas">
-                Ver Reportes
-              </Link>
-            </Button>
+            
             <Button asChild variant="outline" className="w-full">
               <Link href="/admin/auditoria">
                 Auditoría
