@@ -23,6 +23,22 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   MessageSquare, 
   ThumbsUp, 
@@ -37,7 +53,12 @@ import {
   BarChart,
   RefreshCw,
   TrendingUp,
-  Activity
+  Activity,
+  Search,
+  Filter,
+  SortAsc,
+  SortDesc,
+  ChevronDown
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { useAuth } from '@/contexts/AuthContext';
@@ -78,6 +99,19 @@ export function SupervisorView() {
   const [statusChart, setStatusChart] = useState<ChartData[]>([]);
   const [areaProgressChart, setAreaProgressChart] = useState<ChartData[]>([]);
   const [dashboardLoading, setDashboardLoading] = useState(true);
+
+  // Estados para filtros y búsqueda de jornadas
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [areaFilter, setAreaFilter] = useState<string>('all');
+  const [sortField, setSortField] = useState<string>('fecha');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
+  
+  // Separar jornadas del día y historial
+  const [jornadasHoy, setJornadasHoy] = useState<EmployeeJornada[]>([]);
+  const [jornadasHistorial, setJornadasHistorial] = useState<EmployeeJornada[]>([]);
 
   useEffect(() => {
     loadJornadas();
@@ -126,7 +160,7 @@ export function SupervisorView() {
     if (!user) return;
     
     try {
-      const data = await apiService.getJornadasForSupervisors();
+      const data = await apiService.getJornadasForSupervisors() as any[];
       
       const processedJornadas = data.map((j: any) => {
         let status: EmployeeJornada['status'] = 'Offline';
@@ -142,10 +176,15 @@ export function SupervisorView() {
         }
         
         return { ...j, status };
-      });
+      }) as EmployeeJornada[];
       
-      // Ordenar por prioridad
-      processedJornadas.sort((a, b) => {
+      // Separar jornadas del día actual vs historial
+      const today = new Date().toISOString().split('T')[0];
+      const hoy = processedJornadas.filter(j => j.fecha.split('T')[0] === today);
+      const historial = processedJornadas.filter(j => j.fecha.split('T')[0] !== today);
+      
+      // Ordenar jornadas de hoy por prioridad
+      hoy.sort((a, b) => {
         const statusOrder = { 
           'Pending Approval': 0, // Prioridad máxima
           'Online': 1,           // Trabajando
@@ -155,7 +194,12 @@ export function SupervisorView() {
         return statusOrder[a.status] - statusOrder[b.status];
       });
       
-      setJornadas(processedJornadas);
+      // Ordenar historial por fecha descendente
+      historial.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+      
+      setJornadasHoy(hoy);
+      setJornadasHistorial(historial);
+      setJornadas(processedJornadas); // Mantener para compatibilidad
     } catch (error) {
       console.error('Error loading jornadas:', error);
       toast({
@@ -166,6 +210,102 @@ export function SupervisorView() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Funciones de filtrado y búsqueda
+  const getUniqueAreas = () => {
+    const areas = new Set<string>();
+    jornadasHistorial.forEach(j => {
+      if (j.usuario?.area?.nombre_area) {
+        areas.add(j.usuario.area.nombre_area);
+      }
+    });
+    return Array.from(areas).sort();
+  };
+
+  const filterJornadas = (jornadas: EmployeeJornada[]) => {
+    return jornadas.filter(jornada => {
+      // Filtro por búsqueda de texto
+      const searchMatch = searchTerm === '' || 
+        (jornada.usuario?.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+         jornada.usuario?.apellido?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+         jornada.usuario?.email?.toLowerCase().includes(searchTerm.toLowerCase()));
+
+      // Filtro por estado
+      const statusMatch = statusFilter === 'all' || jornada.status === statusFilter;
+
+      // Filtro por área
+      const areaMatch = areaFilter === 'all' || jornada.usuario?.area?.nombre_area === areaFilter;
+
+      return searchMatch && statusMatch && areaMatch;
+    });
+  };
+
+  const sortJornadas = (jornadas: EmployeeJornada[]) => {
+    return [...jornadas].sort((a, b) => {
+      let valueA: any, valueB: any;
+
+      switch (sortField) {
+        case 'empleado':
+          valueA = `${a.usuario?.nombre || ''} ${a.usuario?.apellido || ''}`;
+          valueB = `${b.usuario?.nombre || ''} ${b.usuario?.apellido || ''}`;
+          break;
+        case 'area':
+          valueA = a.usuario?.area?.nombre_area || '';
+          valueB = b.usuario?.area?.nombre_area || '';
+          break;
+        case 'status':
+          valueA = a.status;
+          valueB = b.status;
+          break;
+        case 'fecha':
+          valueA = new Date(a.fecha).getTime();
+          valueB = new Date(b.fecha).getTime();
+          break;
+        case 'checkin':
+          valueA = new Date(a.hora_checkin).getTime();
+          valueB = new Date(b.hora_checkin).getTime();
+          break;
+        default:
+          return 0;
+      }
+
+      if (valueA < valueB) return sortDirection === 'asc' ? -1 : 1;
+      if (valueA > valueB) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  };
+
+  const getPaginatedJornadas = (jornadas: EmployeeJornada[]) => {
+    const filtered = filterJornadas(jornadas);
+    const sorted = sortJornadas(filtered);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    
+    return {
+      data: sorted.slice(startIndex, endIndex),
+      total: sorted.length,
+      totalPages: Math.ceil(sorted.length / itemsPerPage)
+    };
+  };
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+    setCurrentPage(1);
+  };
+
+  const resetFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('all');
+    setAreaFilter('all');
+    setSortField('fecha');
+    setSortDirection('desc');
+    setCurrentPage(1);
   };
 
   const loadJornadaDetails = async (jornada: Jornada) => {
@@ -427,81 +567,440 @@ export function SupervisorView() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Calendar className="h-5 w-5" />
-            Gestión de Jornadas Activas
+            Gestión de Jornadas
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {jornadas.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <p>No hay jornadas de empleados registradas</p>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Empleado</TableHead>
-                  <TableHead>Área</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead>Fecha</TableHead>
-                  <TableHead>Check-in</TableHead>
-                  <TableHead>Check-out</TableHead>
-                  <TableHead>Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-              {jornadas.map((jornada) => (
-                <TableRow key={jornada.id_jornada}>
-                  <TableCell>
-                    <div className="flex items-center space-x-3">
-                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-muted">
-                        <span className="text-sm font-medium">
-                          {jornada.usuario ? `${jornada.usuario.nombre.charAt(0)}${jornada.usuario.apellido.charAt(0)}` : 'U'}
-                        </span>
+          <Tabs defaultValue="today" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="today" className="flex items-center gap-2">
+                <Clock className="h-4 w-4" />
+                Jornadas de Hoy ({jornadasHoy.length})
+              </TabsTrigger>
+              <TabsTrigger value="history" className="flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                Historial ({jornadasHistorial.length})
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Tab de Jornadas de Hoy */}
+            <TabsContent value="today" className="space-y-4">
+              {jornadasHoy.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Clock className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p className="text-lg">No hay jornadas registradas hoy</p>
+                  <p className="text-sm">Los empleados pueden iniciar sus jornadas desde la aplicación</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* Métricas rápidas del día */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-center">
+                      <div className="text-lg font-bold text-yellow-800">
+                        {jornadasHoy.filter(j => j.status === 'Pending Approval').length}
                       </div>
-                      <div>
-                        <p className="font-medium">
-                          {jornada.usuario ? `${jornada.usuario.nombre} ${jornada.usuario.apellido}` : 'Usuario Desconocido'}
-                        </p>
-                        <p className="text-sm text-muted-foreground">{jornada.usuario?.email}</p>
-                      </div>
+                      <div className="text-xs text-yellow-700">Pendientes</div>
                     </div>
-                  </TableCell>
-                  <TableCell>
-                    {jornada.usuario?.area?.nombre_area || 'No asignada'}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="secondary" className={`${getStatusColor(jornada.status)} text-white`}>
-                      <div className="flex items-center space-x-1">
-                        {getStatusIcon(jornada.status)}
-                        <span>
-                          {jornada.status === 'Online' && 'Trabajando'}
-                          {jornada.status === 'Pending Approval' && (jornada.hora_checkout ? 'Check-out Pendiente' : 'Check-in Pendiente')}
-                          {jornada.status === 'Approved' && 'Aprobado'}
-                          {jornada.status === 'Offline' && 'Desconectado'}
-                        </span>
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
+                      <div className="text-lg font-bold text-green-800">
+                        {jornadasHoy.filter(j => j.status === 'Online').length}
                       </div>
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{formatDate(jornada.fecha)}</TableCell>
-                  <TableCell>{formatTime(jornada.hora_checkin)}</TableCell>
-                  <TableCell>
-                    {jornada.hora_checkout ? formatTime(jornada.hora_checkout) : 'En curso'}
-                  </TableCell>
-                  <TableCell>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => loadJornadaDetails(jornada)}
-                    >
-                      <Eye className="mr-1 h-3 w-3" />
-                      Ver Detalles
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          )}
+                      <div className="text-xs text-green-700">Trabajando</div>
+                    </div>
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
+                      <div className="text-lg font-bold text-blue-800">
+                        {jornadasHoy.filter(j => j.status === 'Approved').length}
+                      </div>
+                      <div className="text-xs text-blue-700">Completadas</div>
+                    </div>
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-center">
+                      <div className="text-lg font-bold text-gray-800">
+                        {jornadasHoy.filter(j => j.status === 'Offline').length}
+                      </div>
+                      <div className="text-xs text-gray-700">Sin Actividad</div>
+                    </div>
+                  </div>
+
+                  {/* Lista de jornadas de hoy */}
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Empleado</TableHead>
+                          <TableHead>Área</TableHead>
+                          <TableHead>Estado</TableHead>
+                          <TableHead>Check-in</TableHead>
+                          <TableHead>Check-out</TableHead>
+                          <TableHead>Acciones</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {jornadasHoy.map((jornada) => (
+                          <TableRow key={jornada.id_jornada} className="hover:bg-muted/50">
+                            <TableCell>
+                              <div className="flex items-center space-x-3">
+                                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10">
+                                  <span className="text-sm font-medium text-primary">
+                                    {jornada.usuario ? `${jornada.usuario.nombre.charAt(0)}${jornada.usuario.apellido.charAt(0)}` : 'U'}
+                                  </span>
+                                </div>
+                                <div>
+                                  <p className="font-medium text-sm">
+                                    {jornada.usuario ? `${jornada.usuario.nombre} ${jornada.usuario.apellido}` : 'Usuario Desconocido'}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">{jornada.usuario?.email}</p>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="text-xs">
+                                {jornada.usuario?.area?.nombre_area || 'No asignada'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="secondary" className={`${getStatusColor(jornada.status)} text-white text-xs`}>
+                                <div className="flex items-center space-x-1">
+                                  {getStatusIcon(jornada.status)}
+                                  <span>
+                                    {jornada.status === 'Online' && 'Trabajando'}
+                                    {jornada.status === 'Pending Approval' && (jornada.hora_checkout ? 'Check-out Pendiente' : 'Check-in Pendiente')}
+                                    {jornada.status === 'Approved' && 'Completada'}
+                                    {jornada.status === 'Offline' && 'Sin Actividad'}
+                                  </span>
+                                </div>
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="font-mono text-sm">{formatTime(jornada.hora_checkin)}</TableCell>
+                            <TableCell className="font-mono text-sm">
+                              {jornada.hora_checkout ? formatTime(jornada.hora_checkout) : (
+                                <span className="text-muted-foreground italic">En curso</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => loadJornadaDetails(jornada)}
+                                className="h-8 px-3"
+                              >
+                                <Eye className="mr-1 h-3 w-3" />
+                                Ver
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              )}
+            </TabsContent>
+
+            {/* Tab de Historial */}
+            <TabsContent value="history" className="space-y-4">
+              {/* Controles de filtrado y búsqueda */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-muted/30 rounded-lg">
+                <div className="space-y-2">
+                  <Label htmlFor="search" className="text-sm font-medium">Buscar empleado</Label>
+                  <div className="relative">
+                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="search"
+                      placeholder="Nombre, apellido o email..."
+                      value={searchTerm}
+                      onChange={(e) => {
+                        setSearchTerm(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                      className="pl-8 h-9"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Estado</Label>
+                  <Select value={statusFilter} onValueChange={(value) => {
+                    setStatusFilter(value);
+                    setCurrentPage(1);
+                  }}>
+                    <SelectTrigger className="h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos los estados</SelectItem>
+                      <SelectItem value="Pending Approval">Pendiente Aprobación</SelectItem>
+                      <SelectItem value="Online">Trabajando</SelectItem>
+                      <SelectItem value="Approved">Aprobado</SelectItem>
+                      <SelectItem value="Offline">Sin Actividad</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Área</Label>
+                  <Select value={areaFilter} onValueChange={(value) => {
+                    setAreaFilter(value);
+                    setCurrentPage(1);
+                  }}>
+                    <SelectTrigger className="h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas las áreas</SelectItem>
+                      {getUniqueAreas().map(area => (
+                        <SelectItem key={area} value={area}>{area}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Acciones</Label>
+                  <div className="flex gap-2">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm" className="h-9 flex-1">
+                          <Filter className="mr-1 h-3 w-3" />
+                          Ordenar
+                          <ChevronDown className="ml-1 h-3 w-3" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleSort('fecha')}>
+                          <Calendar className="mr-2 h-4 w-4" />
+                          Por Fecha
+                          {sortField === 'fecha' && (sortDirection === 'asc' ? <SortAsc className="ml-2 h-4 w-4" /> : <SortDesc className="ml-2 h-4 w-4" />)}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleSort('empleado')}>
+                          <Users className="mr-2 h-4 w-4" />
+                          Por Empleado
+                          {sortField === 'empleado' && (sortDirection === 'asc' ? <SortAsc className="ml-2 h-4 w-4" /> : <SortDesc className="ml-2 h-4 w-4" />)}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleSort('area')}>
+                          <FileText className="mr-2 h-4 w-4" />
+                          Por Área
+                          {sortField === 'area' && (sortDirection === 'asc' ? <SortAsc className="ml-2 h-4 w-4" /> : <SortDesc className="ml-2 h-4 w-4" />)}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleSort('status')}>
+                          <Activity className="mr-2 h-4 w-4" />
+                          Por Estado
+                          {sortField === 'status' && (sortDirection === 'asc' ? <SortAsc className="ml-2 h-4 w-4" /> : <SortDesc className="ml-2 h-4 w-4" />)}
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={resetFilters}>
+                          <RefreshCw className="mr-2 h-4 w-4" />
+                          Limpiar Filtros
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
+              </div>
+
+              {(() => {
+                const { data: paginatedData, total, totalPages } = getPaginatedJornadas(jornadasHistorial);
+                
+                return (
+                  <>
+                    {/* Información de resultados */}
+                    <div className="flex items-center justify-between text-sm text-muted-foreground">
+                      <span>
+                        Mostrando {paginatedData.length > 0 ? ((currentPage - 1) * itemsPerPage) + 1 : 0} a {Math.min(currentPage * itemsPerPage, total)} de {total} jornadas
+                      </span>
+                      {(searchTerm || statusFilter !== 'all' || areaFilter !== 'all') && (
+                        <Button variant="ghost" size="sm" onClick={resetFilters}>
+                          <RefreshCw className="mr-1 h-3 w-3" />
+                          Limpiar filtros
+                        </Button>
+                      )}
+                    </div>
+
+                    {/* Tabla de historial */}
+                    {paginatedData.length === 0 ? (
+                      <div className="text-center py-12 text-muted-foreground">
+                        <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                        <p className="text-lg">No se encontraron jornadas</p>
+                        <p className="text-sm">Intenta ajustar los filtros de búsqueda</p>
+                      </div>
+                    ) : (
+                      <div className="rounded-md border">
+                        <div className="max-h-[500px] overflow-y-auto">
+                          <Table>
+                            <TableHeader className="sticky top-0 bg-background z-10">
+                              <TableRow>
+                                <TableHead 
+                                  className="cursor-pointer hover:bg-muted/50"
+                                  onClick={() => handleSort('empleado')}
+                                >
+                                  <div className="flex items-center">
+                                    Empleado
+                                    {sortField === 'empleado' && (
+                                      sortDirection === 'asc' ? <SortAsc className="ml-1 h-3 w-3" /> : <SortDesc className="ml-1 h-3 w-3" />
+                                    )}
+                                  </div>
+                                </TableHead>
+                                <TableHead 
+                                  className="cursor-pointer hover:bg-muted/50"
+                                  onClick={() => handleSort('area')}
+                                >
+                                  <div className="flex items-center">
+                                    Área
+                                    {sortField === 'area' && (
+                                      sortDirection === 'asc' ? <SortAsc className="ml-1 h-3 w-3" /> : <SortDesc className="ml-1 h-3 w-3" />
+                                    )}
+                                  </div>
+                                </TableHead>
+                                <TableHead 
+                                  className="cursor-pointer hover:bg-muted/50"
+                                  onClick={() => handleSort('status')}
+                                >
+                                  <div className="flex items-center">
+                                    Estado
+                                    {sortField === 'status' && (
+                                      sortDirection === 'asc' ? <SortAsc className="ml-1 h-3 w-3" /> : <SortDesc className="ml-1 h-3 w-3" />
+                                    )}
+                                  </div>
+                                </TableHead>
+                                <TableHead 
+                                  className="cursor-pointer hover:bg-muted/50"
+                                  onClick={() => handleSort('fecha')}
+                                >
+                                  <div className="flex items-center">
+                                    Fecha
+                                    {sortField === 'fecha' && (
+                                      sortDirection === 'asc' ? <SortAsc className="ml-1 h-3 w-3" /> : <SortDesc className="ml-1 h-3 w-3" />
+                                    )}
+                                  </div>
+                                </TableHead>
+                                <TableHead>Check-in</TableHead>
+                                <TableHead>Check-out</TableHead>
+                                <TableHead>Acciones</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {paginatedData.map((jornada) => (
+                                <TableRow key={jornada.id_jornada} className="hover:bg-muted/50">
+                                  <TableCell>
+                                    <div className="flex items-center space-x-3">
+                                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10">
+                                        <span className="text-sm font-medium text-primary">
+                                          {jornada.usuario ? `${jornada.usuario.nombre.charAt(0)}${jornada.usuario.apellido.charAt(0)}` : 'U'}
+                                        </span>
+                                      </div>
+                                      <div>
+                                        <p className="font-medium text-sm">
+                                          {jornada.usuario ? `${jornada.usuario.nombre} ${jornada.usuario.apellido}` : 'Usuario Desconocido'}
+                                        </p>
+                                        <p className="text-xs text-muted-foreground">{jornada.usuario?.email}</p>
+                                      </div>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge variant="outline" className="text-xs">
+                                      {jornada.usuario?.area?.nombre_area || 'No asignada'}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge variant="secondary" className={`${getStatusColor(jornada.status)} text-white text-xs`}>
+                                      <div className="flex items-center space-x-1">
+                                        {getStatusIcon(jornada.status)}
+                                        <span>
+                                          {jornada.status === 'Online' && 'Trabajando'}
+                                          {jornada.status === 'Pending Approval' && 'Pendiente'}
+                                          {jornada.status === 'Approved' && 'Aprobado'}
+                                          {jornada.status === 'Offline' && 'Sin Actividad'}
+                                        </span>
+                                      </div>
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className="text-sm">
+                                    {formatDate(jornada.fecha)}
+                                  </TableCell>
+                                  <TableCell className="font-mono text-sm">{formatTime(jornada.hora_checkin)}</TableCell>
+                                  <TableCell className="font-mono text-sm">
+                                    {jornada.hora_checkout ? formatTime(jornada.hora_checkout) : (
+                                      <span className="text-muted-foreground italic">En curso</span>
+                                    )}
+                                  </TableCell>
+                                  <TableCell>
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm"
+                                      onClick={() => loadJornadaDetails(jornada)}
+                                      className="h-8 px-3"
+                                    >
+                                      <Eye className="mr-1 h-3 w-3" />
+                                      Ver
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Paginación */}
+                    {totalPages > 1 && (
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm text-muted-foreground">
+                          Página {currentPage} de {totalPages}
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                            disabled={currentPage === 1}
+                          >
+                            Anterior
+                          </Button>
+                          
+                          {/* Números de página */}
+                          <div className="flex items-center space-x-1">
+                            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                              let pageNum = i + 1;
+                              if (totalPages > 5) {
+                                if (currentPage <= 3) {
+                                  pageNum = i + 1;
+                                } else if (currentPage >= totalPages - 2) {
+                                  pageNum = totalPages - 4 + i;
+                                } else {
+                                  pageNum = currentPage - 2 + i;
+                                }
+                              }
+                              
+                              return (
+                                <Button
+                                  key={pageNum}
+                                  variant={currentPage === pageNum ? "default" : "outline"}
+                                  size="sm"
+                                  onClick={() => setCurrentPage(pageNum)}
+                                  className="w-8 h-8 p-0"
+                                >
+                                  {pageNum}
+                                </Button>
+                              );
+                            })}
+                          </div>
+
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                            disabled={currentPage === totalPages}
+                          >
+                            Siguiente
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
       {/* Progreso Individual de Empleados */}

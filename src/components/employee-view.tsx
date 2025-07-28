@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
-import { LogIn, LogOut, FileText, CheckCircle, Clock, Plus, Calendar, MessageSquare } from 'lucide-react';
+import { LogIn, LogOut, FileText, CheckCircle, Clock, Plus, Calendar, MessageSquare, Eye, XCircle } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -46,6 +46,13 @@ export function EmployeeView() {
   const [isLoading, setIsLoading] = useState(false);
   const [tareasPendientes, setTareasPendientes] = useState<TareaPendiente[]>([]);
   const [tareasSeleccionadas, setTareasSeleccionadas] = useState<number[]>([]);
+  
+  // Estados para vista centralizada de comentarios
+  const [showAllCommentsDialog, setShowAllCommentsDialog] = useState(false);
+  const [allComentarios, setAllComentarios] = useState<any[]>([]);
+  const [loadingAllComentarios, setLoadingAllComentarios] = useState(false);
+  const [selectedActivityForComment, setSelectedActivityForComment] = useState<number | null>(null);
+  const [newComment, setNewComment] = useState('');
   
   // Form de checkin con tareas
   const [checkinForm, setCheckinForm] = useState({
@@ -146,6 +153,58 @@ export function EmployeeView() {
       setTareasPendientes(pendientes);
     } catch (error) {
       console.error('Error loading tareas pendientes:', error);
+    }
+  };
+
+  const openCommentsView = async () => {
+    if (!currentJornada) return;
+    
+    setShowAllCommentsDialog(true);
+    setLoadingAllComentarios(true);
+    
+    try {
+      const comentariosData = await apiService.getComentariosByJornada(currentJornada.id_jornada);
+      setAllComentarios(comentariosData as any[]);
+    } catch (error) {
+      console.error('Error loading comentarios:', error);
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar los comentarios",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingAllComentarios(false);
+    }
+  };
+
+  const handleAddCommentFromDialog = async () => {
+    if (!selectedActivityForComment || !newComment.trim()) return;
+    
+    try {
+      await apiService.createComentario({
+        id_actividad: selectedActivityForComment,
+        comentario: newComment
+      });
+      
+      toast({
+        title: "Comentario agregado",
+        description: "Tu comentario se guardó correctamente",
+      });
+      
+      setNewComment('');
+      setSelectedActivityForComment(null);
+      
+      // Recargar comentarios
+      if (currentJornada) {
+        const comentariosData = await apiService.getComentariosByJornada(currentJornada.id_jornada);
+        setAllComentarios(comentariosData as any[]);
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudo agregar el comentario",
+        variant: "destructive",
+      });
     }
   };
 
@@ -556,13 +615,27 @@ export function EmployeeView() {
       <div className="lg:col-span-2">
         <Card className="shadow-lg transition-shadow hover:shadow-xl">
           <CardHeader>
-            <CardTitle className="font-headline flex items-center gap-2">
-              <FileText className="h-6 w-6 text-primary" />
-              Actividades del Día
-            </CardTitle>
-            <CardDescription>
-              Gestiona el estado y progreso de tus tareas de ventas
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="font-headline flex items-center gap-2">
+                  <FileText className="h-6 w-6 text-primary" />
+                  Actividades del Día
+                </CardTitle>
+                <CardDescription>
+                  Gestiona el estado y progreso de tus tareas de ventas
+                </CardDescription>
+              </div>
+              {isCheckedIn && currentJornada && (
+                <Button 
+                  variant="outline" 
+                  onClick={() => openCommentsView()}
+                  className="flex items-center gap-2"
+                >
+                  <MessageSquare className="h-4 w-4" />
+                  Ver Todos los Comentarios
+                </Button>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             {isCheckedIn ? (
@@ -612,6 +685,168 @@ export function EmployeeView() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Diálogo centralizado para ver todos los comentarios de la jornada */}
+      <Dialog open={showAllCommentsDialog} onOpenChange={setShowAllCommentsDialog}>
+        <DialogContent className="sm:max-w-[900px] max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5" />
+              Comentarios de la Jornada
+            </DialogTitle>
+            <DialogDescription>
+              Todos los comentarios organizados por actividad - {currentJornada && new Date(currentJornada.fecha).toLocaleDateString('es-ES')}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4">
+            {loadingAllComentarios ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                <span className="ml-2 text-sm text-muted-foreground">Cargando comentarios...</span>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {actividades.map((actividad) => {
+                  const comentariosActividad = allComentarios.filter(c => c.id_actividad === actividad.id);
+                  
+                  return (
+                    <div key={actividad.id} className="border rounded-lg p-4 space-y-3">
+                      <div className="flex items-center justify-between border-b pb-2">
+                        <div>
+                          <h4 className="font-semibold text-lg flex items-center gap-2">
+                            {actividad.tarea}
+                            {actividad.es_arrastrada && (
+                              <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                                🔄 Continuada
+                              </Badge>
+                            )}
+                          </h4>
+                          <p className="text-sm text-muted-foreground">
+                            <span className="font-medium">Meta:</span> {actividad.meta}
+                          </p>
+                        </div>
+                        <Badge className={
+                          actividad.id_estado === 1 ? 'bg-gray-100 text-gray-800' :
+                          actividad.id_estado === 2 ? 'bg-yellow-100 text-yellow-800' :
+                          actividad.id_estado === 3 ? 'bg-green-100 text-green-800' :
+                          'bg-red-100 text-red-800'
+                        }>
+                          {actividad.id_estado === 1 ? 'Pendiente' :
+                           actividad.id_estado === 2 ? 'En Progreso' :
+                           actividad.id_estado === 3 ? 'Completada' : 'Cancelada'}
+                        </Badge>
+                      </div>
+                      
+                      {comentariosActividad.length > 0 ? (
+                        <div className="space-y-3 max-h-[200px] overflow-y-auto">
+                          {comentariosActividad.map((comentario, index) => (
+                            <div key={index} className="bg-gray-50 rounded-lg p-3 space-y-2">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center">
+                                    <span className="text-xs font-medium text-primary">
+                                      {comentario.usuario?.nombre?.charAt(0) || 'U'}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <p className="text-sm font-medium">
+                                      {comentario.usuario?.nombre} {comentario.usuario?.apellido}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {comentario.usuario?.rol?.nombre || 'Usuario'}
+                                    </p>
+                                  </div>
+                                </div>
+                                <span className="text-xs text-muted-foreground">
+                                  {new Date(comentario.fecha_comentario).toLocaleString('es-ES', {
+                                    day: '2-digit',
+                                    month: '2-digit',
+                                    year: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  })}
+                                </span>
+                              </div>
+                              <p className="text-sm bg-white p-2 rounded border-l-4 border-primary/20">
+                                {comentario.comentario}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-4 text-muted-foreground">
+                          <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                          <p className="text-sm">No hay comentarios para esta actividad</p>
+                        </div>
+                      )}
+                      
+                      {/* Área para agregar comentario a esta actividad específica */}
+                      {currentJornada?.aprobado && !currentJornada?.hora_checkout && (
+                        <div className="mt-3 pt-3 border-t space-y-2">
+                          {selectedActivityForComment === actividad.id ? (
+                            <div className="space-y-2">
+                              <Textarea
+                                placeholder={`Agregar comentario para: ${actividad.tarea}`}
+                                value={newComment}
+                                onChange={(e) => setNewComment(e.target.value)}
+                                rows={2}
+                              />
+                              <div className="flex justify-end gap-2">
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedActivityForComment(null);
+                                    setNewComment('');
+                                  }}
+                                >
+                                  Cancelar
+                                </Button>
+                                <Button 
+                                  onClick={handleAddCommentFromDialog} 
+                                  disabled={!newComment.trim()}
+                                  size="sm"
+                                >
+                                  <MessageSquare className="h-4 w-4 mr-1" />
+                                  Agregar
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => setSelectedActivityForComment(actividad.id)}
+                              className="w-full"
+                            >
+                              <MessageSquare className="h-4 w-4 mr-1" />
+                              Agregar comentario a esta actividad
+                            </Button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                
+                {actividades.length === 0 && (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No hay actividades en esta jornada</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Cerrar</Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -630,9 +865,6 @@ function ActividadCard({
   onUpdateEstado: (id: number, estado: number) => void;
   onAddComentario: (id: number, comentario: string) => void;
 }) {
-  const [showCommentDialog, setShowCommentDialog] = useState(false);
-  const [comentario, setComentario] = useState('');
-
   const getEstadoColor = (estadoId: number) => {
     switch (estadoId) {
       case 1: return 'bg-gray-100 text-gray-800';
@@ -650,14 +882,6 @@ function ActividadCard({
       case 3: return 'Completada';
       case 4: return 'Cancelada';
       default: return 'Pendiente';
-    }
-  };
-
-  const handleAddComment = () => {
-    if (comentario.trim()) {
-      onAddComentario(actividad.id, comentario);
-      setComentario('');
-      setShowCommentDialog(false);
     }
   };
 
@@ -706,51 +930,13 @@ function ActividadCard({
             </Select>
           ) : (
             <Badge variant="outline" className="text-xs">
-              {!jornadaAprobada ? 'Esperando aprobación de jornada' : 'Jornada finalizada'}
+              {!jornadaAprobada ? 'Esperando aprobación' : 'Jornada finalizada'}
             </Badge>
           )}
         </div>
       </div>
       
-      {/* Comentarios solo disponibles después de aprobación */}
-      {jornadaAprobada && (
-        <div className="mt-3 pt-3 border-t">
-          <Dialog open={showCommentDialog} onOpenChange={setShowCommentDialog}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm">
-                <MessageSquare className="mr-1 h-3 w-3" />
-                Agregar Comentario
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Agregar Comentario</DialogTitle>
-                <DialogDescription>
-                  Documenta el progreso, problemas encontrados o resultados obtenidos
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <Textarea
-                  placeholder="Describe el progreso, problemas encontrados, resultados..."
-                  value={comentario}
-                  onChange={(e) => setComentario(e.target.value)}
-                  rows={3}
-                />
-              </div>
-              <DialogFooter>
-                <DialogClose asChild>
-                  <Button variant="ghost">Cancelar</Button>
-                </DialogClose>
-                <Button onClick={handleAddComment} disabled={!comentario.trim()}>
-                  Agregar Comentario
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </div>
-      )}
-
-      {/* Si no está aprobada, mostrar mensaje informativo */}
+      {/* Mensaje informativo si no está aprobada */}
       {!jornadaAprobada && (
         <div className="mt-3 pt-3 border-t">
           <p className="text-xs text-muted-foreground italic">
